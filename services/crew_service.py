@@ -13,25 +13,29 @@ from groq import RateLimitError, APIError
 from agents.skill_agent import create_skill_analyzer
 from agents.market_agent import create_market_advisor
 from agents.roadmap_agent import create_roadmap_planner
+from services.rag_service import find_courses  # NEW — added Day 8
 
-# Set up logging — prints to terminal with timestamps
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def build_tasks(skill_agent, market_agent, roadmap_agent,
-                skills: str, goal: str, experience: str,
-                job_postings: str = "", salary_data: str = "") -> list:
+def build_tasks_1_2(
+    skill_agent,
+    market_agent,
+    skills: str,
+    goal: str,
+    experience: str,
+    job_postings: str = "",
+    salary_data: str = "",
+) -> list:
     """
-    Builds the 3 Task objects.
-    Separated from run_crew() so Day 6 can pass job_postings and salary_data
-    into the task descriptions without changing the run logic.
+    Builds Task 1 (Skill Analyzer) and Task 2 (Market Advisor) only.
+    These run first so their outputs can be extracted before RAG is called.
 
-    job_postings and salary_data default to empty string for Day 5.
-    On Day 6, real data strings will be passed in from data_fetcher.py.
+    Renamed from build_tasks() on Day 8 to support the two-phase crew approach.
+    The original build_tasks() logic is preserved here exactly — only the
+    function name and task3 removal changed.
     """
-
-    # Prepare context strings — empty on Day 5, real data on Day 6
     job_context = (
         f"\n\nREAL JOB MARKET DATA (from live job postings):\n{job_postings}"
         if job_postings else
@@ -100,9 +104,29 @@ def build_tasks(skill_agent, market_agent, roadmap_agent,
         agent=market_agent,
     )
 
-    task3 = Task(
+    return [task1, task2]
+
+
+def build_task_3(
+    roadmap_agent,
+    skills: str,
+    goal: str,
+    experience: str,
+    skill_gaps_output: str,
+    career_paths_output: str,
+    course_recommendations: str,
+) -> Task:
+    """
+    Builds Task 3 (Roadmap Planner) with RAG course recommendations injected.
+    Called AFTER Tasks 1 and 2 have run and their outputs are available as strings,
+    and AFTER find_courses() has been called with the skill gaps.
+
+    New on Day 8 — previously task3 was part of build_tasks().
+    """
+    return Task(
         description=f"""
-        Using the skill gaps and career paths above, build an 8-week learning roadmap.
+        Using the skill gap analysis, career paths, AND real course recommendations
+        below, build a structured 8-week learning roadmap.
 
         USER PROFILE:
         - Current skills: {skills}
@@ -110,18 +134,28 @@ def build_tasks(skill_agent, market_agent, roadmap_agent,
         - Experience level: {experience}
         - Study time available: 1–2 hours per day
 
-        Requirements:
-        - Address critical gaps identified in the analysis
+        SKILL GAP ANALYSIS (from Agent 1):
+        {skill_gaps_output}
+
+        CAREER PATH RECOMMENDATIONS (from Agent 2):
+        {career_paths_output}
+
+        REAL COURSE RECOMMENDATIONS (retrieved from knowledge base):
+        {course_recommendations}
+
+        REQUIREMENTS FOR THE ROADMAP:
+        - Address critical gaps identified above in priority order
         - Build progressively (foundation → advanced)
-        - Name specific free resources (YouTube channels, official docs, freeCodeCamp, fast.ai)
+        - Use the specific courses listed above where relevant — include their URLs
         - Include one hands-on mini-project per week
         - Keep it realistic for 1–2 hours/day
+        - Week 1 should always start with the most foundational gap
         """,
         expected_output="""
         8-week roadmap where each week has:
         - Week number and focus title
         - 2-3 learning objectives
-        - Named specific resources
+        - Named specific resources (use the courses provided above with their URLs)
         - One mini-project
         - Estimated daily time
 
@@ -129,8 +163,6 @@ def build_tasks(skill_agent, market_agent, roadmap_agent,
         """,
         agent=roadmap_agent,
     )
-
-    return [task1, task2, task3]
 
 
 @retry(
@@ -143,6 +175,7 @@ def _run_crew_with_retry(crew: Crew) -> object:
     Wraps crew.kickoff() with retry logic.
     If Groq returns a 429 RateLimitError, waits 10s then 20s then 40s before giving up.
     Decorated separately so tenacity can retry just the kickoff call.
+    Unchanged from Day 5.
     """
     return crew.kickoff()
 
@@ -156,41 +189,90 @@ def run_crew(
 ) -> dict:
     """
     Main entry point called by main.py.
-    Day 5: job_postings and salary_data are empty strings.
-    Day 6: real data strings are passed in from data_fetcher.py.
+
+    Two-phase approach introduced on Day 8:
+      Phase 1 — Run Tasks 1 and 2 (Skill Analyzer + Market Advisor)
+      RAG     — Call find_courses() with Agent 1's skill gap output
+      Phase 2 — Run Task 3 (Roadmap Planner) with RAG results injected
+
+    The function signature is unchanged from Day 6 — main.py needs no updates.
     """
     start_time = time.time()
-
     logger.info(f"Starting crew pipeline for goal='{goal}'")
 
-    # Instantiate fresh agents per request
+    # Instantiate fresh agents per request (stateless — important for concurrency)
     skill_agent   = create_skill_analyzer()
     market_agent  = create_market_advisor()
     roadmap_agent = create_roadmap_planner()
 
-    # Build tasks (with or without real data injected)
-    tasks = build_tasks(
-        skill_agent, market_agent, roadmap_agent,
-        skills, goal, experience,
-        job_postings, salary_data,
+    # ── Phase 1: Run Tasks 1 and 2 ────────────────────────────────────────────
+    # We need Agent 1's skill gap text as a string before we can query ChromaDB.
+    # Running Tasks 1 and 2 as their own crew gives us that intermediate output.
+    logger.info("Phase 1: Running Skill Analyzer and Market Advisor agents...")
+
+    tasks_1_2 = build_tasks_1_2(
+        skill_agent=skill_agent,
+        market_agent=market_agent,
+        skills=skills,
+        goal=goal,
+        experience=experience,
+        job_postings=job_postings,
+        salary_data=salary_data,
     )
 
-    crew = Crew(
-        agents=[skill_agent, market_agent, roadmap_agent],
-        tasks=tasks,
+    partial_crew = Crew(
+        agents=[skill_agent, market_agent],
+        tasks=tasks_1_2,
         process=Process.sequential,
         verbose=True,
     )
 
-    # Run with automatic retry on rate limit
-    crew_output = _run_crew_with_retry(crew)
+    partial_output = _run_crew_with_retry(partial_crew)
+
+    skill_gaps_output   = partial_output.tasks_output[0].raw
+    career_paths_output = partial_output.tasks_output[1].raw
+
+    logger.info("Phase 1 complete — skill gaps and career paths generated")
+
+    # ── RAG: Query ChromaDB with real skill gap text ───────────────────────────
+    # Agent 1's output is used directly as the semantic search query.
+    # ChromaDB finds the 5 most semantically similar courses from courses.json.
+    logger.info("Querying ChromaDB for course recommendations...")
+    course_recommendations = find_courses(skill_gaps_output, n_results=5)
+    logger.info("Course recommendations retrieved from ChromaDB")
+
+    # ── Phase 2: Run Task 3 with RAG-enriched context ─────────────────────────
+    # Agent 3 now sees Agent 1 output + Agent 2 output + real course URLs.
+    # This is what makes the roadmap cite specific courses instead of generic advice.
+    logger.info("Phase 2: Running Roadmap Planner agent with RAG context...")
+
+    task3 = build_task_3(
+        roadmap_agent=roadmap_agent,
+        skills=skills,
+        goal=goal,
+        experience=experience,
+        skill_gaps_output=skill_gaps_output,
+        career_paths_output=career_paths_output,
+        course_recommendations=course_recommendations,
+    )
+
+    final_crew = Crew(
+        agents=[roadmap_agent],
+        tasks=[task3],
+        process=Process.sequential,
+        verbose=True,
+    )
+
+    final_output = _run_crew_with_retry(final_crew)
+    roadmap_output = final_output.tasks_output[0].raw
 
     elapsed = round(time.time() - start_time, 2)
-    logger.info(f"Crew pipeline completed in {elapsed}s")
+    logger.info(f"Full pipeline complete in {elapsed}s")
 
+    # Return dict shape is identical to Day 5/6 — main.py needs no changes
     return {
-        "skill_gaps":        crew_output.tasks_output[0].raw,
-        "career_paths":      crew_output.tasks_output[1].raw,
-        "roadmap":           crew_output.tasks_output[2].raw,
+        "skill_gaps":        skill_gaps_output,
+        "career_paths":      career_paths_output,
+        "roadmap":           roadmap_output,
         "response_time_sec": elapsed,
     }

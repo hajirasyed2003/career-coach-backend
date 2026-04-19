@@ -1,0 +1,252 @@
+[
+    {
+      "id": "c001",
+      "title": "Docker for Beginners — Full Course",
+      "platform": "freeCodeCamp (YouTube)",
+      "url": "https://www.youtube.com/watch?v=fqMOX6JJhGo",
+      "skills": "Docker, containerization, container orchestration, DevOps, Dockerfile, docker-compose",
+      "level": "beginner",
+      "duration_hours": 4,
+      "free": true
+    },
+    {
+      "id": "c002",
+      "title": "Kubernetes Tutorial for Beginners",
+      "platform": "TechWorld with Nana (YouTube)",
+      "url": "https://www.youtube.com/watch?v=X48VuDVv0do",
+      "skills": "Kubernetes, K8s, container orchestration, pods, deployments, services, DevOps",
+      "level": "beginner",
+      "duration_hours": 4,
+      "free": true
+    },
+    {
+      "id": "c003",
+      "title": "Apache Spark with Python — PySpark Tutorial",
+      "platform": "freeCodeCamp (YouTube)",
+      "url": "https://www.youtube.com/watch?v=_C8kWso4ne4",
+      "skills": "Apache Spark, PySpark, big data, distributed computing, data engineering, ETL",
+      "level": "intermediate",
+      "duration_hours": 3,
+      "free": true
+    },
+    {
+      "id": "c004",
+      "title": "Apache Airflow Tutorial — Complete Guide",
+      "platform": "Marc Lamberti (YouTube)",
+      "url": "https://www.youtube.com/watch?v=K9AnJ9_ZAXE",
+      "skills": "Apache Airflow, workflow orchestration, DAGs, pipeline scheduling, data engineering",
+      "level": "intermediate",
+      "duration_hours": 5,
+      "free": true
+    },
+    {
+      "id": "c005",
+      "title": "dbt (data build tool) Complete Tutorial",
+      "platform": "dbt Labs (YouTube)",
+      "url": "https://www.youtube.com/watch?v=toSAAgLUHuk",
+      "skills": "dbt, data build tool, SQL transformation, data modeling, analytics engineering",
+      "level": "intermediate",
+      "duration_hours": 3,
+      "free": true
+    },
+    {
+      "id": "c006",
+      "title": "Snowflake Zero to Hero — Complete Course",
+      "platform": "Darshil Parmar (YouTube)",
+      "url": "https://www.youtube.com/watch?v=9PBvVeCQi0w",
+      "skills": "Snowflake, cloud data warehouse, SQL, data engineering, analytics",
+      "level": "beginner",
+      "duration_hours": 6,
+      "free": true
+    },
+    {
+      "id": "c007",
+      "title": "AWS for Beginners — Complete Course",
+      "platform": "freeCodeCamp (YouTube)",
+      "url": "https://www.youtube.com/watch?v=ulprqHHWlng",
+      "skills": "AWS, Amazon Web Services, cloud computing, S3, EC2, Lambda, cloud infrastructure",
+      "level": "beginner",
+      "duration_hours": 5,
+      "free": true
+    },
+    {
+      "id": "c008",
+      "title": "Google Cloud Platform (GCP) Full Course",
+      "platform": "freeCodeCamp (YouTube)",
+      "url": "https://www.youtube.com/watch?v=jpno8FSqpc8",
+      "skills": "GCP, Google Cloud, BigQuery, cloud computing, cloud infrastructure, data engineering",
+      "level": "beginner",
+      "duration_hours": 7,
+      "free": true
+    },
+    {
+      "id": "c009",
+      "title": "Azure Fundamentals — AZ-900 Full Course",
+      "platform": "freeCodeCamp (YouTube)",
+      "url": "https://www.youtube.com/watch?v=NKEFWyqJ5XA",
+      "skills": "Microsoft Azure, cloud computing, Azure services, cloud infrastructure",
+      "level": "beginner",
+      "duration_hours": 3,
+      "free": true
+    },
+    {
+      "id": "c010",
+      "title": "Python for Data Engineering — Full Course",
+      "platform": "Joe Reis (YouTube)",
+      "url": "https://www.youtube.com/watch?v=dvviIUKwH7o",
+      "skills": "Python, data engineering, ETL, pipeline development, pandas, data processing",
+      "level": "intermediate",
+      "duration_hours": 4,
+      "free": true
+    },
+    {
+      "id": "c011",
+      "title": "SQL for Data Analysis — Complete Bootcamp",
+      "platform": "freeCodeCamp (YouTube)",
+      "url": "https://www.youtube.com/watch?v=HXV3zeQKqGY",
+      "skills": "SQL, database queries, data analysis, PostgreSQL, MySQL, joins, aggregations",
+      "level": "beginner",
+      "duration_hours": 4,
+      "free": true
+    },
+    {
+      "id": "c012",
+      "title": "Apache Kafka for Beginners",
+      "platform": "Confluent (YouTube)",
+      "url": "https://www.youtube.com/watch?v=j4bqyAMMb7o",
+      "skills": "Apache Kafka, streaming, event-driven architecture, real-time data, message queue",
+      "level": "intermediate",
+      "duration_hours": 3,
+      "free": true
+    },
+    {
+      "id": "c013",
+      "title": "Terraform for Beginners",
+      "platform": "freeCodeCamp (YouTube)",
+      "url": "https://www.youtube.com/watch?v=SLB_c_ayRMo",
+      "skills": "Terraform, infrastructure as code, IaC, DevOps, cloud provisioning, AWS, GCP",
+      "level": "beginner",
+      "duration_hours": 3,
+      "free": true
+    },
+    {
+      "id": "c014",
+      "title": "Machine Learning Course — Andrew Ng",
+      "platform": "Coursera (audit free)",
+      "url": "https://www.coursera.org/specializations/machine-learning-introduction",
+      "skills": "machine learning, supervised learning, neural networks, regression, classification, ML",
+      "level": "intermediate",
+      "duration_hours": 60,
+      "free": true
+    },
+    {
+      "id": "c015",
+      "title": "Deep Learning Specialization",
+      "platform": "Coursera / deeplearning.ai (audit free)",
+      "url": "https://www.coursera.org/specializations/deep-learning",
+      "skills": "deep learning, neural networks, CNN, RNN, TensorFlow, computer vision, NLP",
+      "level": "advanced",
+      "duration_hours": 80,
+      "free": true
+    },
+    {
+      "id": "c016",
+      "title": "FastAPI Full Course for Beginners",
+      "platform": "freeCodeCamp (YouTube)",
+      "url": "https://www.youtube.com/watch?v=7t2alSnE2-I",
+      "skills": "FastAPI, Python, REST API, backend development, Pydantic, async Python",
+      "level": "beginner",
+      "duration_hours": 3,
+      "free": true
+    },
+    {
+      "id": "c017",
+      "title": "React Full Course 2024",
+      "platform": "Dave Gray (YouTube)",
+      "url": "https://www.youtube.com/watch?v=RVFAyFWO4go",
+      "skills": "React, JavaScript, frontend development, hooks, components, state management",
+      "level": "beginner",
+      "duration_hours": 9,
+      "free": true
+    },
+    {
+      "id": "c018",
+      "title": "TypeScript Full Course for Beginners",
+      "platform": "Dave Gray (YouTube)",
+      "url": "https://www.youtube.com/watch?v=30LWjhZzg50",
+      "skills": "TypeScript, JavaScript, type safety, frontend development, interfaces, generics",
+      "level": "beginner",
+      "duration_hours": 8,
+      "free": true
+    },
+    {
+      "id": "c019",
+      "title": "Git and GitHub Full Course",
+      "platform": "freeCodeCamp (YouTube)",
+      "url": "https://www.youtube.com/watch?v=apGV9Kg7ics",
+      "skills": "Git, GitHub, version control, branching, pull requests, collaboration, DevOps",
+      "level": "beginner",
+      "duration_hours": 4,
+      "free": true
+    },
+    {
+      "id": "c020",
+      "title": "Statistics for Data Science — Full Course",
+      "platform": "freeCodeCamp (YouTube)",
+      "url": "https://www.youtube.com/watch?v=xxpc-HPKN28",
+      "skills": "statistics, probability, data science, hypothesis testing, distributions, analytics",
+      "level": "beginner",
+      "duration_hours": 8,
+      "free": true
+    },
+    {
+      "id": "c021",
+      "title": "Pandas for Data Analysis — Complete Tutorial",
+      "platform": "Keith Galli (YouTube)",
+      "url": "https://www.youtube.com/watch?v=vmEHCJofslg",
+      "skills": "pandas, Python, data analysis, dataframes, data manipulation, data cleaning",
+      "level": "beginner",
+      "duration_hours": 3,
+      "free": true
+    },
+    {
+      "id": "c022",
+      "title": "PostgreSQL Full Tutorial",
+      "platform": "freeCodeCamp (YouTube)",
+      "url": "https://www.youtube.com/watch?v=qw--VYLpxG4",
+      "skills": "PostgreSQL, SQL, relational databases, database design, queries, indexing",
+      "level": "beginner",
+      "duration_hours": 4,
+      "free": true
+    },
+    {
+      "id": "c023",
+      "title": "MLOps Zoomcamp — Free Course",
+      "platform": "DataTalks.Club",
+      "url": "https://github.com/DataTalks-Club/mlops-zoomcamp",
+      "skills": "MLOps, machine learning, model deployment, monitoring, ML pipelines, production ML",
+      "level": "advanced",
+      "duration_hours": 40,
+      "free": true
+    },
+    {
+      "id": "c024",
+      "title": "Data Engineering Zoomcamp — Free Course",
+      "platform": "DataTalks.Club",
+      "url": "https://github.com/DataTalks-Club/data-engineering-zoomcamp",
+      "skills": "data engineering, Spark, Kafka, dbt, BigQuery, Airflow, Terraform, batch processing",
+      "level": "intermediate",
+      "duration_hours": 40,
+      "free": true
+    },
+    {
+      "id": "c025",
+      "title": "LLM Zoomcamp — Free LLM Engineering Course",
+      "platform": "DataTalks.Club",
+      "url": "https://github.com/DataTalks-Club/llm-zoomcamp",
+      "skills": "LLM, large language models, RAG, vector databases, AI engineering, embeddings",
+      "level": "intermediate",
+      "duration_hours": 30,
+      "free": true
+    }
+  ]
