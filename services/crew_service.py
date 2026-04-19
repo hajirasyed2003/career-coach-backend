@@ -1,171 +1,196 @@
 # services/crew_service.py
 import time
+import logging
 from crewai import Crew, Task, Process
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
+from groq import RateLimitError, APIError
+
 from agents.skill_agent import create_skill_analyzer
 from agents.market_agent import create_market_advisor
 from agents.roadmap_agent import create_roadmap_planner
 
+# Set up logging — prints to terminal with timestamps
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def run_crew(skills: str, goal: str, experience: str) -> dict:
+
+def build_tasks(skill_agent, market_agent, roadmap_agent,
+                skills: str, goal: str, experience: str,
+                job_postings: str = "", salary_data: str = "") -> list:
     """
-    The main entry point called by main.py's /career/analyze endpoint.
+    Builds the 3 Task objects.
+    Separated from run_crew() so Day 6 can pass job_postings and salary_data
+    into the task descriptions without changing the run logic.
 
-    Creates agents fresh per request (stateless — important for production).
-    Builds 3 Tasks with real prompt instructions.
-    Runs them sequentially via CrewAI.
-    Returns a dict with all three outputs.
-
-    Args:
-        skills: comma-separated user skills, e.g. "Python, SQL, Excel"
-        goal: target career role, e.g. "Data Engineer"
-        experience: experience level, e.g. "1-2 years"
-
-    Returns:
-        dict with keys: skill_gaps, career_paths, roadmap, response_time_sec
+    job_postings and salary_data default to empty string for Day 5.
+    On Day 6, real data strings will be passed in from data_fetcher.py.
     """
 
+    # Prepare context strings — empty on Day 5, real data on Day 6
+    job_context = (
+        f"\n\nREAL JOB MARKET DATA (from live job postings):\n{job_postings}"
+        if job_postings else
+        "\n\n(Note: Using general market knowledge — real job data will be added in next phase)"
+    )
+
+    salary_context = (
+        f"\n\nREAL SALARY DATA:\n{salary_data}"
+        if salary_data else
+        "\n\n(Note: Provide general salary estimates based on market knowledge)"
+    )
+
+    task1 = Task(
+        description=f"""
+        Analyze this job seeker's skills for their target role.
+
+        USER PROFILE:
+        - Current skills: {skills}
+        - Target career role: {goal}
+        - Experience level: {experience}
+        {job_context}
+
+        YOUR ANALYSIS TASK:
+        1. Identify which of the user's skills are directly relevant to {goal} (strengths)
+        2. Identify the critical skills that {goal} roles require but the user is MISSING
+        3. Identify secondary/nice-to-have skills (secondary gaps)
+        4. Calculate a skill match percentage (0–100%)
+
+        Be specific. Focus on technical and domain-specific skills only.
+        """,
+        expected_output="""
+        Structured skill gap analysis with:
+        - Match Score percentage
+        - Strengths: bullet list of relevant existing skills
+        - Critical Gaps: must-have missing skills with explanation
+        - Secondary Gaps: nice-to-have missing skills
+        - Summary paragraph (2-3 sentences)
+        """,
+        agent=skill_agent,
+    )
+
+    task2 = Task(
+        description=f"""
+        Based on the skill gap analysis above, recommend career paths.
+
+        USER PROFILE:
+        - Current skills: {skills}
+        - Target career role: {goal}
+        - Experience level: {experience}
+        {salary_context}
+
+        Recommend exactly 3 realistic career paths ranging from most achievable
+        to most ambitious. For each path provide:
+        1. Job title
+        2. Salary range (annual USD)
+        3. Top 5 required skills
+        4. Estimated months to qualify from current level
+        5. Difficulty: Easy / Moderate / Challenging
+        6. One sentence on why this suits the user
+        """,
+        expected_output="""
+        Exactly 3 career paths, each with:
+        job title, salary range, required skills, time to qualify,
+        difficulty rating, and fit explanation.
+        """,
+        agent=market_agent,
+    )
+
+    task3 = Task(
+        description=f"""
+        Using the skill gaps and career paths above, build an 8-week learning roadmap.
+
+        USER PROFILE:
+        - Current skills: {skills}
+        - Target career role: {goal}
+        - Experience level: {experience}
+        - Study time available: 1–2 hours per day
+
+        Requirements:
+        - Address critical gaps identified in the analysis
+        - Build progressively (foundation → advanced)
+        - Name specific free resources (YouTube channels, official docs, freeCodeCamp, fast.ai)
+        - Include one hands-on mini-project per week
+        - Keep it realistic for 1–2 hours/day
+        """,
+        expected_output="""
+        8-week roadmap where each week has:
+        - Week number and focus title
+        - 2-3 learning objectives
+        - Named specific resources
+        - One mini-project
+        - Estimated daily time
+
+        End with a brief next-steps paragraph for after week 8.
+        """,
+        agent=roadmap_agent,
+    )
+
+    return [task1, task2, task3]
+
+
+@retry(
+    retry=retry_if_exception_type(RateLimitError),
+    wait=wait_exponential(multiplier=1, min=10, max=60),
+    stop=stop_after_attempt(3),
+)
+def _run_crew_with_retry(crew: Crew) -> object:
+    """
+    Wraps crew.kickoff() with retry logic.
+    If Groq returns a 429 RateLimitError, waits 10s then 20s then 40s before giving up.
+    Decorated separately so tenacity can retry just the kickoff call.
+    """
+    return crew.kickoff()
+
+
+def run_crew(
+    skills: str,
+    goal: str,
+    experience: str,
+    job_postings: str = "",
+    salary_data: str = "",
+) -> dict:
+    """
+    Main entry point called by main.py.
+    Day 5: job_postings and salary_data are empty strings.
+    Day 6: real data strings are passed in from data_fetcher.py.
+    """
     start_time = time.time()
 
-    # ── 1. Instantiate agents ─────────────────────────────────────────────────
-    # Fresh agents per request ensures no state leaks between users
+    logger.info(f"Starting crew pipeline for goal='{goal}'")
+
+    # Instantiate fresh agents per request
     skill_agent   = create_skill_analyzer()
     market_agent  = create_market_advisor()
     roadmap_agent = create_roadmap_planner()
 
-    # ── 2. Define Task 1 — Skill Gap Analysis ─────────────────────────────────
-    # The description IS the prompt content for this task.
-    # {skills}, {goal}, {experience} are filled in from function args above.
-    # "expected_output" guides the agent on format — not enforced, but strongly followed.
-    task1 = Task(
-        description=f"""
-        You are analyzing a job seeker's skills for their target role.
-
-        USER PROFILE:
-        - Current skills: {skills}
-        - Target career role: {goal}
-        - Experience level: {experience}
-
-        YOUR ANALYSIS TASK:
-        1. Identify which of the user's skills are directly relevant to {goal} roles (strengths)
-        2. Identify the critical skills that {goal} roles require but the user is MISSING (critical gaps)
-        3. Identify secondary/nice-to-have skills that would strengthen their profile (secondary gaps)
-        4. Calculate a skill match percentage (0-100%) based on how many required skills they have
-
-        Be specific. Do not list generic skills like "communication" or "problem-solving".
-        Focus only on technical and domain-specific skills relevant to {goal}.
-        """,
-
-        expected_output="""
-        A structured skill gap analysis containing:
-        - Match percentage score (e.g. "Match Score: 45%")
-        - Strengths: list of user's relevant existing skills (bullet points)
-        - Critical Gaps: list of must-have missing skills with brief explanation of why each matters
-        - Secondary Gaps: list of nice-to-have skills
-        - Brief summary paragraph (2-3 sentences) explaining the overall situation
-        """,
-
-        agent=skill_agent,
+    # Build tasks (with or without real data injected)
+    tasks = build_tasks(
+        skill_agent, market_agent, roadmap_agent,
+        skills, goal, experience,
+        job_postings, salary_data,
     )
 
-    # ── 3. Define Task 2 — Career Path Recommendations ────────────────────────
-    # CrewAI automatically appends Task 1's output to this task's context.
-    # The agent will see the full skill gap analysis when it runs.
-    task2 = Task(
-        description=f"""
-        Based on the skill gap analysis above, recommend career paths for this user.
-
-        USER PROFILE:
-        - Current skills: {skills}
-        - Target career role: {goal}
-        - Experience level: {experience}
-
-        YOUR TASK:
-        Recommend exactly 3 career paths that are realistic given the user's current skills
-        and the identified gaps. The paths should range from most achievable (using existing
-        skills) to most ambitious (requiring significant upskilling).
-
-        For each career path provide:
-        1. Job title
-        2. Salary range (annual, in USD)
-        3. Top 5 required skills for this role
-        4. Estimated time to qualify from user's current level (in months)
-        5. Difficulty rating: Easy / Moderate / Challenging
-        6. One sentence on why this path suits the user's profile
-        """,
-
-        expected_output="""
-        Exactly 3 career path recommendations, each formatted clearly with:
-        - Path title/job role
-        - Salary range
-        - Required skills list
-        - Time to qualify
-        - Difficulty rating
-        - Why it suits this user
-        """,
-
-        agent=market_agent,
-    )
-
-    # ── 4. Define Task 3 — Learning Roadmap ───────────────────────────────────
-    # This agent sees Task 1 output (skill gaps) AND Task 2 output (career paths).
-    # It uses both to build a targeted, progressive learning plan.
-    task3 = Task(
-        description=f"""
-        Using the skill gap analysis and career path recommendations above,
-        build a structured 8-week learning roadmap for this user.
-
-        USER PROFILE:
-        - Current skills: {skills}
-        - Target career role: {goal}
-        - Experience level: {experience}
-        - Available study time: approximately 1-2 hours per day
-
-        YOUR TASK:
-        Create a week-by-week learning plan that:
-        1. Addresses the critical skill gaps identified in the analysis
-        2. Builds progressively (foundation skills first, advanced skills later)
-        3. Includes specific learning resources for each week
-        4. Includes a hands-on mini-project for each week to apply learning
-        5. Is realistic for someone studying 1-2 hours per day
-
-        Focus on free or widely available resources (YouTube, official docs,
-        freeCodeCamp, fast.ai, etc.) — not paid courses unless they are industry standard.
-        """,
-
-        expected_output="""
-        An 8-week structured learning roadmap with each week containing:
-        - Week number and focus area title
-        - Learning objectives for the week (2-3 bullet points)
-        - Specific resources (name the resource, not just the category)
-        - Mini-project to build/practice that week's skills
-        - Estimated daily time commitment
-
-        End with a brief encouragement paragraph and next steps after week 8.
-        """,
-
-        agent=roadmap_agent,
-    )
-
-    # ── 5. Assemble and run the Crew ──────────────────────────────────────────
     crew = Crew(
         agents=[skill_agent, market_agent, roadmap_agent],
-        tasks=[task1, task2, task3],
-        process=Process.sequential,  # task1 → task2 → task3, each seeing previous outputs
-        verbose=True,                # prints crew-level orchestration logs to terminal
+        tasks=tasks,
+        process=Process.sequential,
+        verbose=True,
     )
 
-    # This is the blocking call — takes 30–90 seconds.
-    # On Day 5 you'll run this in a FastAPI background task.
-    crew_output = crew.kickoff()
+    # Run with automatic retry on rate limit
+    crew_output = _run_crew_with_retry(crew)
 
     elapsed = round(time.time() - start_time, 2)
+    logger.info(f"Crew pipeline completed in {elapsed}s")
 
-    # ── 6. Extract outputs ────────────────────────────────────────────────────
-    # crew_output.tasks_output is a list matching your tasks list order
-    # Each element has a .raw attribute containing the agent's full text response
     return {
-        "skill_gaps":    crew_output.tasks_output[0].raw,
-        "career_paths":  crew_output.tasks_output[1].raw,
-        "roadmap":       crew_output.tasks_output[2].raw,
+        "skill_gaps":        crew_output.tasks_output[0].raw,
+        "career_paths":      crew_output.tasks_output[1].raw,
+        "roadmap":           crew_output.tasks_output[2].raw,
         "response_time_sec": elapsed,
     }
