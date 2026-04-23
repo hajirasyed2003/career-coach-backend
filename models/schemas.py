@@ -1,7 +1,7 @@
 # models/schemas.py
 from pydantic import BaseModel, Field
-from typing import Optional
-
+from typing import Optional, List
+from datetime import datetime
 
 class CareerRequest(BaseModel):
     skills: str = Field(
@@ -33,3 +33,69 @@ class CareerResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     message: str
+
+
+class AnalysisHistoryItem(BaseModel):
+    """
+    Represents one past career analysis.
+    This schema matches the career_analyses DB table you'll create on Day 10.
+    The field names here must match the column names there exactly.
+    """
+    id: str
+    goal_input: str
+    skills_input: str
+    experience_input: str
+    skill_gaps_output: str
+    career_paths_output: str
+    roadmap_output: str
+    response_time_sec: float
+    created_at: datetime
+
+    class Config:
+        # Allows SQLAlchemy model instances to be used directly
+        # when you connect the real DB on Day 10
+        from_attributes = True
+
+
+class AnalysisHistoryResponse(BaseModel):
+    """
+    Wraps a list of past analyses with metadata.
+    Returned by GET /user/history.
+    """
+    total: int
+    analyses: List[AnalysisHistoryItem]
+
+
+class SkillProgressUpdate(BaseModel):
+    """
+    Request body for POST /user/skills/progress.
+    Used when the frontend checkbox is ticked for a skill.
+    """
+    skill_name: str = Field(..., min_length=1, example="Docker")
+    status: str = Field(
+        ...,
+        pattern="^(not_started|in_progress|completed)$",
+        example="completed",
+        description="Must be: not_started, in_progress, or completed",
+    )
+
+
+class SkillProgressResponse(BaseModel):
+    """Response after updating a skill's progress status."""
+    skill_name: str
+    status: str
+    message: str
+
+
+class DashboardResponse(BaseModel):
+    """
+    Data for the user's dashboard page.
+    Aggregates stats from their analysis history.
+    """
+    total_analyses: int
+    latest_goal: Optional[str]
+    latest_match_score: Optional[str]
+    skills_in_progress: int
+    skills_completed: int
+    latest_analysis: Optional[AnalysisHistoryItem]
+

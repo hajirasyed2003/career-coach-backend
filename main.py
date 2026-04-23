@@ -8,7 +8,15 @@ from dotenv import load_dotenv
 from groq import RateLimitError, APIError
 from tenacity import RetryError
 
-from models.schemas import CareerRequest, CareerResponse, HealthResponse
+import uuid
+from datetime import datetime, timezone
+from models.schemas import (
+    CareerRequest, CareerResponse, HealthResponse,
+    AnalysisHistoryItem, AnalysisHistoryResponse,
+    SkillProgressUpdate, SkillProgressResponse,
+    DashboardResponse,
+)
+
 from services.crew_service import run_crew
 from services.data_fetcher import fetch_job_postings, fetch_salary_data
 from services.rag_service import seed_courses  # NEW
@@ -82,7 +90,7 @@ async def rag_health():
             "status": "error",
             "message": str(e),
         }
-        
+
 @app.post(
     "/career/analyze",
     response_model=CareerResponse,
@@ -141,3 +149,77 @@ async def analyze_career(request: CareerRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred. Please try again.",
         )
+
+
+@app.get(
+    "/user/history",
+    response_model=AnalysisHistoryResponse,
+    tags=["User"],
+    summary="Get all past career analyses for the current user",
+)
+async def get_user_history():
+    """
+    Returns all past career analyses.
+    Day 9: Returns mock data to verify the schema is correct.
+    Day 10: Will filter by authenticated user_id from JWT token.
+    Day 13: Full implementation with real Supabase query.
+    """
+    # Mock data — realistic shape that matches the real DB schema
+    mock_analysis = AnalysisHistoryItem(
+        id=str(uuid.uuid4()),
+        goal_input="Data Engineer",
+        skills_input="Python, SQL, Excel",
+        experience_input="1-2 years",
+        skill_gaps_output="Match Score: 35%\n\nStrengths:\n- Python...",
+        career_paths_output="Path 1: Junior Data Engineer...",
+        roadmap_output="Week 1: Apache Spark Fundamentals...",
+        response_time_sec=72.4,
+        created_at=datetime.now(timezone.utc),
+    )
+
+    return AnalysisHistoryResponse(
+        total=1,
+        analyses=[mock_analysis],
+    )
+
+
+@app.post(
+    "/user/skills/progress",
+    response_model=SkillProgressResponse,
+    tags=["User"],
+    summary="Update a skill's learning progress status",
+)
+async def update_skill_progress(update: SkillProgressUpdate):
+    """
+    Updates learning status for a specific skill.
+    Day 9: Echoes back the update to verify schema.
+    Day 13: Will write to skill_progress table in Supabase.
+    """
+    return SkillProgressResponse(
+        skill_name=update.skill_name,
+        status=update.status,
+        message=f"Skill '{update.skill_name}' marked as '{update.status}' (mock — DB not connected yet)",
+    )
+
+
+@app.get(
+    "/user/dashboard",
+    response_model=DashboardResponse,
+    tags=["User"],
+    summary="Get aggregated stats for the user's dashboard",
+)
+async def get_user_dashboard():
+    """
+    Returns aggregated stats for the dashboard page.
+    Day 9: Returns mock data.
+    Day 13: Real query aggregating from career_analyses and skill_progress tables.
+    """
+    return DashboardResponse(
+        total_analyses=1,
+        latest_goal="Data Engineer",
+        latest_match_score="35%",
+        skills_in_progress=3,
+        skills_completed=1,
+        latest_analysis=None,
+    )
+
