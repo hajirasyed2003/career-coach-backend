@@ -99,3 +99,30 @@ class DashboardResponse(BaseModel):
     skills_completed: int
     latest_analysis: Optional[AnalysisHistoryItem]
 
+
+class RegisterRequest(BaseModel):
+    email: str = Field(..., example="user@example.com")
+    password: str = Field(..., min_length=8, example="securepassword123")
+    name: str = Field(..., min_length=1, example="Priya Sharma")
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(..., example="user@example.com")
+    password: str = Field(..., example="securepassword123")
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    message: str
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    name: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
